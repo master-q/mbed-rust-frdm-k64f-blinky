@@ -20,9 +20,9 @@ use core::slice::SliceExt;
 
 #[link(name = "mbed", kind = "static")]
 extern {
-    pub fn gpio_write(obj: *mut u8, value: i32);
+    pub fn gpio_write_stub(obj: *mut u8, value: i32);
     pub fn gpio_init_out(obj: *mut u8, pin: u32);
-    pub fn gpio_read(obj: *mut u8) -> i32;
+    pub fn gpio_read_stub(obj: *mut u8) -> i32;
     pub fn gpio_mode(obj: *mut u8, mode: i32);
     pub fn gpio_set(pin: i32) -> u32;
 }
@@ -50,13 +50,13 @@ impl DigitalOut {
 
     pub fn write(&mut self, value: i32) {
         unsafe {
-            gpio_write(self.gpio.as_mut_ptr(), value);
+            gpio_write_stub(self.gpio.as_mut_ptr(), value);
         }
     }
 
     pub fn read(&mut self, value: i32) -> i32 {
         unsafe {
-            gpio_read(self.gpio.as_mut_ptr())
+            gpio_read_stub(self.gpio.as_mut_ptr())
         }
     }
 }
