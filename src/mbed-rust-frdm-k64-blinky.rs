@@ -32,7 +32,7 @@ extern {
 
 #[no_mangle]
 pub fn main() {
-    let mut led = DigitalOut::DigitalOut::new((1 << 12) | 22);
+    let mut led = DigitalOut::DigitalOut::new(0x2009C000 | (32 + 18));
     unsafe {
         loop {
             led.write(1);

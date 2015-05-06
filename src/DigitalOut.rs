@@ -28,7 +28,7 @@ extern {
 }
 
 pub struct DigitalOut {
-    gpio : [u8; 4]
+    gpio : [u8; 24]
 }
 
 impl DigitalOut {
