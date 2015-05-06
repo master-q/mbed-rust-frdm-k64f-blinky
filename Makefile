@@ -12,14 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+LIBMBED   := mbed/mbed/TARGET_LPC1768/TOOLCHAIN_GCC_ARM
+MBED_OBJS := $(LIBMBED)/*.o
+MBED_LD   := $(LIBMBED)/LPC1768.ld
+MBED_INC =  -Imbed/mbed
+MBED_INC += -Imbed/mbed/TARGET_LPC1768
+MBED_INC += -Imbed/mbed/TARGET_LPC1768/TARGET_NXP/TARGET_LPC176X
+MBED_INC += -Imbed/mbed/TARGET_LPC1768/TARGET_NXP/TARGET_LPC176X/TARGET_MBED_LPC1768
+
+PROG := mbed-blinky
+
 CC      := arm-none-eabi-gcc
 AR      := arm-none-eabi-ar
 LD      := arm-none-eabi-ld
+GDB     := arm-none-eabi-gdb
 RUSTC   := rustc
 
 OPT  := 0
 ARCH := thumbv7m
-CPU  := cortex-m4
+CPU  := cortex-m3
 
 OBJCPY = arm-none-eabi-objcopy
 
@@ -28,24 +39,27 @@ RUSTFLAGS += -C relocation-model=static
 RUSTFLAGS += -C opt-level=$(OPT) -g -Z no-landing-pads 
 RUSTFLAGS += -A dead_code -A unused_variables 
 
-LDFLAGS  = -mcpu=$(CPU) -mthumb -T K64FN1M0xxx12.ld
-LDFLAGS += -Wl,-Map=frdm-k64f-mbed-blinky.map,--cref -Wl,--wrap,main
+LDFLAGS  = -mcpu=$(CPU) -mthumb -T $(MBED_LD)
+LDFLAGS += -Wl,-Map=$(PROG).map,--cref -Wl,--wrap,main
 LDFLAGS += -Wl,--gc-sections --specs=nano.specs #-Wl,-print-gc-sections
 # LDFLAGS += -L /usr/lib/arm-none-eabi/newlib -L /usr/lib/arm-none-eabi/newlib/armv7-m #-print-gc-sections
-LDFLAGS += -L . src/mbed-rust-frdm-k64-blinky.o board.o cmsis_nvic.o mbed_overrides.o retarget.o startup_MK64F12.o system_MK64F12.o
-LDFLAGS += -Wl,--start-group -lmbed -lstdc++ -lsupc++ -lm -lc -lgcc -Wl,--end-group
+LDFLAGS += -L . src/mbed-rust-frdm-k64-blinky.o src/gpio_stub.o $(MBED_OBJS)
+LDFLAGS += -Wl,--start-group -L$(LIBMBED) -lmbed -lstdc++ -lsupc++ -lm -lc -lgcc -Wl,--end-group
 
 .SUFFIXES: .o .rs .c
 
-all: frdm-k64f-mbed-blinky.elf frdm-k64f-mbed-blinky.bin print_info
+all: $(PROG).elf $(PROG).bin print_info
 
 .rs.o:
 	$(RUSTC) $(RUSTFLAGS) --emit obj -o $@ $<
 
-frdm-k64f-mbed-blinky.elf: src/mbed-rust-frdm-k64-blinky.o 
-	$(CC) $(LDFLAGS) /usr/lib/gcc/arm-none-eabi/4.8.4/libgcc.a -o $@
+.c.o:
+	$(CC) -mcpu=$(CPU) -mthumb -c -o $@ $< $(MBED_INC)
 
-frdm-k64f-mbed-blinky.bin: frdm-k64f-mbed-blinky.elf
+$(PROG).elf: src/mbed-rust-frdm-k64-blinky.o src/gpio_stub.o
+	$(CC) $(LDFLAGS) /usr/lib/gcc/arm-none-eabi/4.8/libgcc.a -o $@
+
+$(PROG).bin: $(PROG).elf
 	$(OBJCPY) -O binary $< $@
 
 libcore: libcore.rlib
@@ -54,9 +68,13 @@ libcore.rlib:
 	$(RUSTC) $(RUSTFLAGS) ../rust/src/libcore/lib.rs
 
 print_info:
-	arm-none-eabi-size --totals frdm-k64f-mbed-blinky.elf
+	arm-none-eabi-size --totals $(PROG).elf
 
 .PHONY: clean
 
 clean:
-	rm -f *.o frdm-k64f-mbed-blinky.bin frdm-k64f-mbed-blinky.elf
+	rm -f src/*.o $(PROG).bin $(PROG).elf
+
+gdbwrite: $(PROG).elf
+	@echo '##### Use me after running "sudo python pyOCD/test/gdb_server.py". #####'
+	$(GDB) -x gdbwrite.boot $(PROG).elf
